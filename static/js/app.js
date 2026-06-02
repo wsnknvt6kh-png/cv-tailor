@@ -41,12 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const restartBtn       = document.getElementById('restart-btn');
 
     // ── Dynamic API Base URL ───────────────────────────────────────────
-    // Priority: localStorage > auto-detect local vs. production
+    // Priority: localStorage override > default to relative URLs (same host)
+    // When Flask serves both frontend and backend (Railway/local), relative
+    // paths work perfectly. Only override via Settings if using a separate backend.
     let apiBaseUrl = (localStorage.getItem('api_base_url') || '').replace(/\/$/, '');
-    if (!apiBaseUrl && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        // When served from Netlify (no backend on same host) point to Render
-        apiBaseUrl = 'https://ats-cv-tailor-backend.onrender.com';
-    }
 
     // ── Restore saved settings ─────────────────────────────────────────
     if (localStorage.getItem('gemini_api_key')) apiKeyInput.value = localStorage.getItem('gemini_api_key');
