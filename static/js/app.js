@@ -230,12 +230,16 @@ document.addEventListener('DOMContentLoaded', () => {
             redundancyContainer.innerHTML = '';
             checks.forEach(check => {
                 const el = document.createElement('div');
-                el.className = 'p-3 rounded-lg border border-gray-800 bg-gray-900/40 space-y-2';
+                el.id = `red-card-${check.id}`;
+                el.className = 'p-3 rounded-lg border border-gray-800 bg-gray-900/40 space-y-2 transition-opacity duration-300';
                 el.innerHTML = `
                     <div class="flex items-start justify-between gap-2">
-                        <div class="flex-1">
+                        <div class="flex-1 min-w-0">
                             <p class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-0.5">📍 ${check.location}</p>
                             <p class="text-xs text-gray-300">${check.issue}</p>
+                            <span id="red-badge-${check.id}" class="hidden mt-1 inline-block text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">
+                                ✓ Resolved by rewrite
+                            </span>
                         </div>
                         <label class="toggle-switch shrink-0">
                             <input type="checkbox" id="red-${check.id}" checked>
@@ -279,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.innerHTML = `
                     <div class="flex items-start justify-between space-x-3">
                         <div class="text-xs font-semibold text-blue-400 uppercase tracking-wide">${metaLabel}</div>
-                        <label class="switch">
+                        <label class="toggle-switch">
                             <input type="checkbox" id="prop-${prop.id}" checked>
                             <span class="slider"></span>
                         </label>
@@ -296,12 +300,63 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>`;
                 el.querySelector('input').addEventListener('change', (e) => {
                     e.target.checked ? selectedProposals.add(prop.id) : selectedProposals.delete(prop.id);
+                    evaluateRedundancyCards(); // re-check whenever a rewrite is toggled
                 });
                 proposalsContainer.appendChild(el);
             });
         } else {
             proposalsContainer.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No sentence rewrites proposed.</p>';
         }
+
+        // Evaluate redundancy cards after everything is rendered
+        evaluateRedundancyCards();
+    }
+
+    // ── Build text with ALL rewrites applied (for redundancy evaluation) ─
+    function buildAllRewritesApplied() {
+        const cv = JSON.parse(JSON.stringify(originalCVData.parsed_cv));
+        (originalCVData.proposals || []).forEach(prop => {
+            if (prop.section === 'profile') {
+                cv.profile = prop.proposed;
+            } else if (prop.section === 'experience') {
+                const job = cv.experience?.[prop.entry_index];
+                if (!job) return;
+                if (prop.bullet_index === -1) job.description = prop.proposed;
+                else if (job.bullets?.[prop.bullet_index] !== undefined)
+                    job.bullets[prop.bullet_index] = prop.proposed;
+            }
+        });
+        return JSON.stringify(cv);
+    }
+
+    // ── Evaluate which redundancy cards are still relevant ────────────────
+    function evaluateRedundancyCards() {
+        const checks = originalCVData?.redundancy_checks || [];
+        if (!checks.length) return;
+
+        // Build the text that includes ALL accepted rewrites
+        const rewrittenText = buildAllRewritesApplied();
+
+        checks.forEach(check => {
+            const card   = document.getElementById(`red-card-${check.id}`);
+            const toggle = document.getElementById(`red-${check.id}`);
+            const badge  = document.getElementById(`red-badge-${check.id}`);
+            if (!card || !toggle) return;
+
+            const stillPresent = rewrittenText.includes(check.original);
+
+            if (!stillPresent) {
+                // A rewrite already replaced this text — grey out and disable
+                card.classList.add('opacity-40');
+                toggle.checked = false;
+                toggle.disabled = true;
+                if (badge) badge.classList.remove('hidden');
+            } else {
+                card.classList.remove('opacity-40');
+                toggle.disabled = false;
+                if (badge) badge.classList.add('hidden');
+            }
+        });
     }
 
     // ── Compile CV helper ──────────────────────────────────────────────

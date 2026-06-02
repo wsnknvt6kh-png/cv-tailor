@@ -220,7 +220,11 @@ Return ONE JSON object matching this schema exactly:
             response = client.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json")
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.0,   # greedy decoding — deterministic output
+                    top_p=1.0
+                )
             )
             result = json.loads(response.text)
             return jsonify(result)
