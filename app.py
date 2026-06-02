@@ -109,6 +109,7 @@ You are an expert resume writer and ATS optimization specialist.
 IMPORTANT: All text values in your JSON output must be plain text only.
 Do NOT use any markdown formatting (no **bold**, no *italic*, no - bullets, no # headers).
 Write natural sentences exactly as they would appear in a professional CV.
+When incorporating keywords into sentences, use natural sentence-case capitalisation. Do NOT capitalise keywords mid-sentence unless they are genuine proper nouns (e.g. Python, Agile, Amazon) or acronyms (e.g. KPI, OKR, SQL). Common phrases like "data-driven decision making" or "stakeholder management" should remain in lower case when used mid-sentence.
 
 Your tasks:
 1. Parse the CV into structured JSON.
