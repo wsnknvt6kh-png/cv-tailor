@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ATS CV Tailor</title>
+    <!-- Tailwind CSS v3 CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b0f19',
+                        panelBg: 'rgba(17, 24, 39, 0.65)',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Custom stylesheet for glassmorphism and animation controls -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-darkBg min-h-screen flex flex-col antialiased">
+
+    <!-- Header -->
+    <header class="glass-panel sticky top-0 z-40 px-4 py-3 border-b border-gray-800/60 shadow-lg">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-violet-600 flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/25">
+                    ATS
+                </div>
+                <h1 class="text-lg font-bold bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
+                    CV Tailor
+                </h1>
+            </div>
+            
+            <button id="settings-toggle" class="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors" aria-label="Settings">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827a1.125 1.125 0 0 1 .26 1.43l-1.297 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.936 6.936 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Settings Panel (Hidden by default) -->
+    <div id="settings-panel" class="glass-panel hidden border-t-0 border-x-0 border-b border-gray-800 px-4 py-4 shadow-xl">
+        <div class="max-w-md mx-auto space-y-4">
+            <h3 class="text-sm font-semibold text-gray-200">Configuration</h3>
+
+            <!-- Gemini API Key -->
+            <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Gemini API Key</label>
+                <input type="password" id="api-key-input" placeholder="AIzaSy..."
+                    class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500 transition-colors">
+            </div>
+
+            <!-- Backend API URL (for global deployment) -->
+            <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Backend URL <span class="text-gray-600 normal-case font-normal">(leave blank when running locally)</span></label>
+                <input type="text" id="api-url-input" placeholder="https://your-app.onrender.com"
+                    class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500 transition-colors">
+            </div>
+
+            <button id="save-settings-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-4 py-2.5 rounded-lg transition-colors">
+                Save Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <main class="flex-grow px-4 py-6 w-full max-w-md mx-auto flex flex-col justify-start">
+
+        <!-- STEP 1: UPLOAD AND INPUT -->
+        <section id="workspace-step1" class="space-y-6">
+            
+            <!-- CV Upload Area -->
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Upload CV (PDF)</label>
+                
+                <div id="upload-area" class="border-2 border-dashed border-gray-800 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-gray-700 hover:bg-gray-900/10 transition-all duration-300">
+                    <div class="w-12 h-12 rounded-xl bg-gray-900 border border-gray-800/80 flex items-center justify-center text-blue-400 mb-3 shadow-inner">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
+                        </svg>
+                    </div>
+                    <p class="text-sm font-semibold text-gray-200">Select or Drag CV PDF</p>
+                    <p class="text-[11px] text-gray-500 mt-1">Single page layout recommended</p>
+                    <input type="file" id="file-input" class="hidden" accept="application/pdf">
+                </div>
+
+                <div id="file-info" class="hidden p-4 rounded-xl border border-gray-800 bg-gray-900/40 flex items-center justify-between">
+                    <div class="flex items-center space-x-3 overflow-hidden">
+                        <div class="p-2 rounded-lg bg-blue-950 text-blue-400 shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                            </svg>
+                        </div>
+                        <span id="file-name" class="text-sm text-gray-200 truncate pr-4 font-medium">CV.pdf</span>
+                    </div>
+                    <button id="remove-file-btn" class="p-1.5 text-gray-500 hover:text-red-400 hover:bg-gray-800/40 rounded-lg transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Job Description Area -->
+            <div class="space-y-4">
+                
+                <!-- URL input -->
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Job Description URL</label>
+                    <div class="relative">
+                        <input type="text" id="jd-url" placeholder="https://careers.google.com/jobs/results/..." class="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-3 text-sm text-gray-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all">
+                        <div class="absolute left-3 top-3.5 text-gray-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Text Divider -->
+                <div class="flex items-center justify-between text-xs text-gray-600 font-bold uppercase tracking-widest py-1">
+                    <div class="h-px bg-gray-800 flex-grow mr-4"></div>
+                    <span>or</span>
+                    <div class="h-px bg-gray-800 flex-grow ml-4"></div>
+                </div>
+
+                <!-- Paste Textarea -->
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Paste Job Description Text</label>
+                    <textarea id="jd-text" rows="5" placeholder="Paste the job requirements and responsibilities details here..." class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all resize-none"></textarea>
+                </div>
+            </div>
+
+            <!-- Analyze CTA -->
+            <div class="pt-2">
+                <button id="analyze-btn" class="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all">
+                    Analyze CV & Job Post
+                </button>
+                
+                <!-- Loading Skeleton -->
+                <div id="analysis-loader" class="hidden space-y-4">
+                    <button disabled class="w-full py-4 rounded-xl bg-gray-800 text-gray-500 font-bold text-sm flex items-center justify-center space-x-2">
+                        <svg class="animate-spin h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Scanning CV with Gemini...</span>
+                    </button>
+                    
+                    <!-- Dynamic Pulse skeleton lines -->
+                    <div class="glass-panel p-4 rounded-xl space-y-3 pulse-skeleton">
+                        <div class="h-3 bg-gray-800 rounded w-1/3"></div>
+                        <div class="h-2 bg-gray-800 rounded w-3/4"></div>
+                        <div class="h-2 bg-gray-800 rounded w-5/6"></div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- STEP 2: TAILORING CENTER -->
+        <section id="workspace-step2" class="hidden flex-grow flex flex-col space-y-5">
+            
+            <div class="flex flex-col space-y-1">
+                <h2 class="text-base font-bold text-gray-100">Tailoring Center</h2>
+                <p class="text-xs text-gray-400">Select adjustments to tailor Federico's CV</p>
+            </div>
+
+            <!-- Tab Toggles -->
+            <div class="flex border-b border-gray-800/80">
+                <button id="tab-keywords" class="flex-1 pb-3 text-center text-xs font-semibold border-b-2 border-blue-500 text-blue-400 transition-colors">
+                    Keywords (10-15)
+                </button>
+                <button id="tab-bullets" class="flex-1 pb-3 text-center text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition-colors">
+                    Bullet Rewrites
+                </button>
+            </div>
+
+            <!-- Scrollable Checklist Frame -->
+            <div class="flex-grow min-h-[300px] overflow-y-auto max-h-[480px] no-scrollbar pr-0.5">
+                
+                <!-- Keywords Checklist Pane -->
+                <div id="pane-keywords" class="space-y-3">
+                    <p class="text-[11px] text-gray-500 px-1">Selected keywords will be appended to the **Competencies** section of your CV.</p>
+                    <div id="keywords-container" class="space-y-2.5">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Bullets Comparison Pane -->
+                <div id="pane-bullets" class="hidden space-y-4">
+                    <p class="text-[11px] text-gray-500 px-1">Toggle switches to accept tailored sentence rewrites inside your experience block.</p>
+                    <div id="proposals-container" class="space-y-4">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Generate PDF CTA -->
+            <div class="pt-2">
+                <button id="generate-pdf-btn" class="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all">
+                    Compile & Download CV PDF
+                </button>
+                
+                <!-- Loading Skeleton -->
+                <div id="generation-loader" class="hidden">
+                    <button disabled class="w-full py-4 rounded-xl bg-gray-800 text-gray-500 font-bold text-sm flex items-center justify-center space-x-2">
+                        <svg class="animate-spin h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Rebuilding single-page layout...</span>
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- STEP 3: SUCCESS PANEL -->
+        <section id="workspace-step3" class="hidden flex-grow flex flex-col items-center justify-center text-center space-y-6 py-12">
+            
+            <div class="relative">
+                <!-- Pulse glow rings -->
+                <div class="absolute inset-0 rounded-full bg-green-500/20 animate-ping"></div>
+                <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-green-500 to-emerald-600 flex items-center justify-center text-white text-3xl shadow-xl shadow-green-500/20 relative z-10">
+                    ✓
+                </div>
+            </div>
+
+            <div class="space-y-2 max-w-xs">
+                <h2 class="text-xl font-bold text-white">CV Tailored!</h2>
+                <p class="text-sm text-gray-400">Your tailored single-page PDF has been built and downloaded successfully.</p>
+            </div>
+
+            <div class="w-full pt-4">
+                <button id="restart-btn" class="w-full py-3.5 rounded-xl border border-gray-800 hover:border-gray-700 bg-gray-900/30 hover:bg-gray-900/50 text-gray-300 font-semibold text-xs transition-all active:scale-[0.98]">
+                    Tailor Another CV
+                </button>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-4 border-t border-gray-900/60 text-center text-[10px] text-gray-600">
+        Google Antigravity &bull; Safe Local AI Workspace
+    </footer>
+
+    <!-- Frontend reactive logic script -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

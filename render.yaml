@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: ats-cv-tailor-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false   # You will paste this manually in Render dashboard
+    autoDeploy: true
