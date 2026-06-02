@@ -115,7 +115,9 @@ def analyze():
             
         # Build prompt for Gemini
         prompt = f"""
-You are an expert resume writer and ATS optimization specialist. 
+You are an expert resume writer and ATS optimization specialist.
+IMPORTANT: All text values in your JSON output must be plain text only. Do NOT use markdown formatting (no **bold**, no *italic*, no bullet symbols like -, *, no headers). Write natural, flowing sentences as they would appear directly in a professional CV.
+
 Your task is to:
 1. Parse the CV text into structured details.
 2. Analyze the Job Description to identify 10-15 keywords or skills (technologies, methodologies, certifications, or tools). Prioritize them by relevancy to the role.
@@ -197,6 +199,17 @@ Return your output as a single JSON object. Ensure all strings are properly esca
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Strip markdown formatting from text (in case Gemini adds ** or * despite instructions)
+import re
+def strip_markdown(text):
+    if not text:
+        return text
+    # Remove **bold** and *italic* markers
+    text = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', text)
+    # Remove __bold__ and _italic_ markers
+    text = re.sub(r'_{1,2}([^_]+)_{1,2}', r'\1', text)
+    return text.strip()
+
 # Helper to create horizontal rules under section headers
 def create_section_header(title, width):
     style = ParagraphStyle(
@@ -242,12 +255,12 @@ def generate_pdf():
         story = []
         
         # Retrieve structures
-        name = cv_data.get("name", "Name").strip()
-        title = cv_data.get("title", "Professional Title").strip()
-        contact = cv_data.get("contact", "").strip()
-        profile = cv_data.get("profile", "").strip()
+        name    = strip_markdown(cv_data.get("name", "Name"))
+        title   = strip_markdown(cv_data.get("title", "Professional Title"))
+        contact = strip_markdown(cv_data.get("contact", ""))
+        profile = strip_markdown(cv_data.get("profile", ""))
         experience = cv_data.get("experience", [])
-        education = cv_data.get("education", [])
+        education  = cv_data.get("education", [])
         skills_and_interests = cv_data.get("skills_and_interests", {})
         
         # Styles definition
@@ -346,12 +359,12 @@ def generate_pdf():
         if experience:
             story.extend(create_section_header("PROFESSIONAL EXPERIENCE", usable_width))
             for index, job in enumerate(experience):
-                j_title = job.get("title", "")
-                j_company = job.get("company", "")
-                j_loc = job.get("location", "")
-                j_date = job.get("date", "")
-                j_desc = job.get("description", "")
-                j_bullets = job.get("bullets", [])
+                j_title   = strip_markdown(job.get("title", ""))
+                j_company = strip_markdown(job.get("company", ""))
+                j_loc     = strip_markdown(job.get("location", ""))
+                j_date    = strip_markdown(job.get("date", ""))
+                j_desc    = strip_markdown(job.get("description", ""))
+                j_bullets = [strip_markdown(b) for b in job.get("bullets", [])]
                 
                 # Format company & location
                 company_loc = j_company
