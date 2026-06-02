@@ -184,42 +184,77 @@ document.addEventListener('DOMContentLoaded', () => {
         keywordsContainer.innerHTML = '';
         proposalsContainer.innerHTML = '';
 
-        // Keywords — only show MISSING ones (under-represented are already in the CV)
+        // Keywords — split into MISSING (interactive) and ALREADY PRESENT (green, display-only)
         if (originalCVData.keywords && originalCVData.keywords.length > 0) {
-            const sorted = [...originalCVData.keywords]
-                .filter(kw => kw.matching_status === 'missing')
-                .sort((a, b) => a.priority - b.priority);
+            const sorted = [...originalCVData.keywords].sort((a, b) => a.priority - b.priority);
+            const missing       = sorted.filter(kw => kw.matching_status === 'missing');
+            const alreadyHere   = sorted.filter(kw => kw.matching_status !== 'missing');
 
-            if (sorted.length === 0) {
-                keywordsContainer.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">All key skills are already present in your CV.</p>';
+            if (missing.length === 0 && alreadyHere.length === 0) {
+                keywordsContainer.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No keywords found.</p>';
             } else {
-                sorted.forEach((kw) => {
-                    selectedKeywords.add(kw.word); // pre-select all missing keywords
+                // ── Missing keywords (interactive checkboxes) ──────────────────
+                if (missing.length === 0) {
+                    const msg = document.createElement('p');
+                    msg.className = 'text-gray-400 text-sm text-center py-2';
+                    msg.textContent = 'All key skills are already present in your CV.';
+                    keywordsContainer.appendChild(msg);
+                } else {
+                    missing.forEach((kw) => {
+                        selectedKeywords.add(kw.word);
 
-                    const score = kw.score ?? null;
-                    const scoreColor = score === null ? 'text-gray-500' :
-                        score >= 7 ? 'text-green-400' :
-                        score >= 5 ? 'text-yellow-400' : 'text-orange-400';
+                        const score = kw.score ?? null;
+                        const scoreColor = score === null ? 'text-gray-500' :
+                            score >= 7 ? 'text-green-400' :
+                            score >= 5 ? 'text-yellow-400' : 'text-orange-400';
 
-                    const el = document.createElement('div');
-                    el.className = 'flex items-center justify-between p-3 rounded-lg border border-gray-800 bg-gray-900/40';
-                    el.innerHTML = `
-                        <div class="flex items-center space-x-3">
-                            <input type="checkbox" id="kw-${kw.word.replace(/\s+/g,'-')}"
-                                   class="w-4 h-4 text-blue-600 border-gray-700 bg-gray-900 rounded focus:ring-blue-500 focus:ring-opacity-25"
-                                   checked>
-                            <label for="kw-${kw.word.replace(/\s+/g,'-')}"
-                                   class="text-sm font-medium text-gray-200 cursor-pointer select-none">${kw.word}</label>
-                        </div>
-                        <div class="flex items-center space-x-2 shrink-0">
-                            ${score !== null ? `<span class="text-[10px] font-bold ${scoreColor}">${score}/9</span>` : ''}
-                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">MISSING</span>
-                        </div>`;
-                    el.querySelector('input').addEventListener('change', (e) => {
-                        e.target.checked ? selectedKeywords.add(kw.word) : selectedKeywords.delete(kw.word);
+                        const el = document.createElement('div');
+                        el.className = 'flex items-center justify-between p-3 rounded-lg border border-gray-800 bg-gray-900/40';
+                        el.innerHTML = `
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" id="kw-${kw.word.replace(/\s+/g,'-')}"
+                                       class="w-4 h-4 text-blue-600 border-gray-700 bg-gray-900 rounded focus:ring-blue-500 focus:ring-opacity-25"
+                                       checked>
+                                <label for="kw-${kw.word.replace(/\s+/g,'-')}"
+                                       class="text-sm font-medium text-gray-200 cursor-pointer select-none">${kw.word}</label>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0">
+                                ${score !== null ? `<span class="text-[10px] font-bold ${scoreColor}">${score}/9</span>` : ''}
+                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">MISSING</span>
+                            </div>`;
+                        el.querySelector('input').addEventListener('change', (e) => {
+                            e.target.checked ? selectedKeywords.add(kw.word) : selectedKeywords.delete(kw.word);
+                        });
+                        keywordsContainer.appendChild(el);
                     });
-                    keywordsContainer.appendChild(el);
-                });
+                }
+
+                // ── Already present keywords (non-interactive, green) ──────────
+                if (alreadyHere.length > 0) {
+                    const divider = document.createElement('div');
+                    divider.className = 'flex items-center space-x-2 pt-2 pb-1';
+                    divider.innerHTML = `
+                        <div class="h-px flex-grow bg-gray-800"></div>
+                        <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Already in your CV</span>
+                        <div class="h-px flex-grow bg-gray-800"></div>`;
+                    keywordsContainer.appendChild(divider);
+
+                    const wrap = document.createElement('div');
+                    wrap.className = 'flex flex-wrap gap-2 pb-1';
+                    alreadyHere.forEach(kw => {
+                        const score = kw.score ?? null;
+                        const tag = document.createElement('div');
+                        tag.className = 'flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20';
+                        tag.innerHTML = `
+                            <svg class="w-3 h-3 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                            </svg>
+                            <span class="text-xs text-emerald-300 font-medium">${kw.word}</span>
+                            ${score !== null ? `<span class="text-[9px] text-emerald-500 font-bold">${score}/9</span>` : ''}`;
+                        wrap.appendChild(tag);
+                    });
+                    keywordsContainer.appendChild(wrap);
+                }
             }
         } else {
             keywordsContainer.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No keywords found.</p>';

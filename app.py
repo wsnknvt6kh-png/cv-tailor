@@ -118,7 +118,7 @@ When incorporating keywords into sentences, use natural sentence-case capitalisa
 
 Your tasks:
 1. Parse the CV into structured JSON.
-2. Identify 10-15 keywords or skills from the Job Description and SCORE each one using the 4 criteria below. The final priority rank (1 = most important) is determined by total score descending.
+2. Identify up to 30 keywords or skills from the Job Description and SCORE each one using the 4 criteria below. The final priority rank (1 = most important) is determined by total score descending.
 3. Propose natural sentence rewrites in the CV Profile or Experience bullets to weave in high-priority keywords. Never invent achievements — only rephrase what is already there.
 4. Scan the entire CV text for redundancy: repeated words, phrases or concepts that appear more than once across sections. For each issue, identify the location and suggest a cleaner, more human-sounding alternative. Focus on varied language and avoiding repetition.
 
