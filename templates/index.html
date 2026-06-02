@@ -175,10 +175,13 @@
             <!-- Tab Toggles -->
             <div class="flex border-b border-gray-800/80">
                 <button id="tab-keywords" class="flex-1 pb-3 text-center text-xs font-semibold border-b-2 border-blue-500 text-blue-400 transition-colors">
-                    Keywords (10-15)
+                    Keywords
                 </button>
                 <button id="tab-bullets" class="flex-1 pb-3 text-center text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition-colors">
-                    Bullet Rewrites
+                    Rewrites
+                </button>
+                <button id="tab-redundancy" class="flex-1 pb-3 text-center text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition-colors">
+                    Review
                 </button>
             </div>
 
@@ -187,7 +190,7 @@
                 
                 <!-- Keywords Checklist Pane -->
                 <div id="pane-keywords" class="space-y-3">
-                    <p class="text-[11px] text-gray-500 px-1">Selected keywords will be appended to the **Competencies** section of your CV.</p>
+                    <p class="text-[11px] text-gray-500 px-1">Selected keywords will be appended to the <strong class="text-gray-400">Competencies</strong> section of your CV.</p>
                     <div id="keywords-container" class="space-y-2.5">
                         <!-- Populated by JS -->
                     </div>
@@ -195,20 +198,47 @@
 
                 <!-- Bullets Comparison Pane -->
                 <div id="pane-bullets" class="hidden space-y-4">
-                    <p class="text-[11px] text-gray-500 px-1">Toggle switches to accept tailored sentence rewrites inside your experience block.</p>
+                    <p class="text-[11px] text-gray-500 px-1">Toggle to accept tailored sentence rewrites inside your experience block.</p>
                     <div id="proposals-container" class="space-y-4">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Redundancy Review Pane -->
+                <div id="pane-redundancy" class="hidden space-y-4">
+                    <p class="text-[11px] text-gray-500 px-1">Repeated words or concepts detected across your CV. Apply suggestions to make the language more varied and human.</p>
+                    <div id="redundancy-container" class="space-y-3">
                         <!-- Populated by JS -->
                     </div>
                 </div>
 
             </div>
 
-            <!-- Generate PDF CTA -->
-            <div class="pt-2">
+            <!-- Format selector + Generate CTA -->
+            <div class="pt-2 space-y-3">
+                <!-- Format pills -->
+                <div class="flex items-center justify-center space-x-2">
+                    <span class="text-[11px] text-gray-500 uppercase tracking-wider font-semibold">Format:</span>
+                    <div class="flex rounded-lg border border-gray-800 overflow-hidden">
+                        <button id="fmt-pdf" data-fmt="pdf"
+                            class="fmt-btn px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white transition-colors">
+                            PDF
+                        </button>
+                        <button id="fmt-word" data-fmt="word"
+                            class="fmt-btn px-3 py-1.5 text-xs font-semibold bg-gray-900 text-gray-400 hover:text-white transition-colors">
+                            Word
+                        </button>
+                        <button id="fmt-both" data-fmt="both"
+                            class="fmt-btn px-3 py-1.5 text-xs font-semibold bg-gray-900 text-gray-400 hover:text-white transition-colors">
+                            Both
+                        </button>
+                    </div>
+                </div>
+
                 <button id="generate-pdf-btn" class="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all">
-                    Compile & Download CV PDF
+                    Compile &amp; Download CV
                 </button>
-                
+
                 <!-- Loading Skeleton -->
                 <div id="generation-loader" class="hidden">
                     <button disabled class="w-full py-4 rounded-xl bg-gray-800 text-gray-500 font-bold text-sm flex items-center justify-center space-x-2">
@@ -216,7 +246,7 @@
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span>Rebuilding single-page layout...</span>
+                        <span>Building your CV...</span>
                     </button>
                 </div>
             </div>

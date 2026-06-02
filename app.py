@@ -15,6 +15,11 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.graphics.shapes import Drawing, Line
+from docx import Document
+from docx.shared import Pt, RGBColor, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 
 app = Flask(__name__)
 CORS(app)
@@ -25,7 +30,7 @@ def index():
     return render_template('index.html')
 
 
-# ── Helpers ─────────────────────────────────────────────────────────────────────
+# ── Utility helpers ─────────────────────────────────────────────────────────────
 
 def scrape_url(url):
     try:
@@ -57,7 +62,7 @@ def extract_pdf_text(file_stream):
 
 
 def strip_markdown(text):
-    """Remove **bold**, *italic*, __bold__, _italic_ markers from text."""
+    """Remove **bold**, *italic*, __bold__, _italic_ markers."""
     if not text:
         return text
     text = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', text)
@@ -115,6 +120,7 @@ Your tasks:
 1. Parse the CV into structured JSON.
 2. Identify 10-15 keywords or skills from the Job Description and SCORE each one using the 4 criteria below. The final priority rank (1 = most important) is determined by total score descending.
 3. Propose natural sentence rewrites in the CV Profile or Experience bullets to weave in high-priority keywords. Never invent achievements — only rephrase what is already there.
+4. Scan the entire CV text for redundancy: repeated words, phrases or concepts that appear more than once across sections. For each issue, identify the location and suggest a cleaner, more human-sounding alternative. Focus on varied language and avoiding repetition.
 
 KEYWORD SCORING CRITERIA (assign each keyword a score out of 9):
 
@@ -134,12 +140,12 @@ C. Specificity (0-1):
    +0 if it is a generic soft skill (e.g. "communication", "teamwork")
 
 D. Fit with candidate CV background (0-3):
-   +3 if it directly relates to the candidate's existing experience or domain (e.g. a logistics PM being asked about supply chain optimisation)
-   +2 if it is adjacent — the candidate could credibly develop or claim this skill based on their background
+   +3 if it directly relates to the candidate's existing experience or domain
+   +2 if it is adjacent — the candidate could credibly claim this skill based on their background
    +1 if it is loosely related but requires some stretch
-   +0 if it is unrelated to the candidate's background and would be implausible to include (e.g. asking a logistics PM to claim deep SaaS product experience)
+   +0 if it is unrelated to the candidate's background and would be implausible to include
 
-Only recommend keywords where criteria D score is 1 or higher. Do NOT surface keywords with D=0.
+Only recommend keywords where D score is 1 or higher. Do NOT surface keywords with D=0.
 Set matching_status to "missing" if the keyword is absent from the CV, or "under-represented" if present but not prominent.
 
 CV Text:
@@ -198,10 +204,18 @@ Return ONE JSON object matching this schema exactly:
       "proposed": "Rewritten sentence with keyword naturally included",
       "keywords": ["keyword phrase"]
     }}
+  ],
+  "redundancy_checks": [
+    {{
+      "id": "red_1",
+      "location": "e.g. Profile summary and Amazon bullet 2",
+      "issue": "The phrase 'cross-functional collaboration' is used 3 times across different sections.",
+      "original": "The exact repeated sentence or phrase",
+      "suggestion": "A cleaner, more varied alternative"
+    }}
   ]
 }}
 """
-
         try:
             response = client.models.generate_content(
                 model='gemini-2.5-flash',
@@ -219,7 +233,7 @@ Return ONE JSON object matching this schema exactly:
 
 # ── PDF builder ──────────────────────────────────────────────────────────────────
 
-def _section_header(title, width, scale):
+def _section_header_pdf(title, width, scale):
     style = ParagraphStyle(
         'SH', fontName='Helvetica-Bold',
         fontSize=round(10 * scale, 2), leading=round(12 * scale, 2),
@@ -232,54 +246,30 @@ def _section_header(title, width, scale):
 
 
 def _build_cv_buffer(cv_data, scale=1.0):
-    """Render the CV at the given scale factor. Returns a seeked BytesIO."""
+    """Render the CV to a BytesIO PDF at the given scale factor."""
     buf = BytesIO()
-
-    margin = max(0.36 * inch, 0.45 * inch * scale)
+    margin   = max(0.36 * inch, 0.45 * inch * scale)
     usable_w = 8.5 * inch - 2 * margin
 
     doc = SimpleDocTemplate(buf, pagesize=letter,
                             leftMargin=margin, rightMargin=margin,
                             topMargin=margin, bottomMargin=margin)
 
-    def fs(base):  return round(base * scale, 2)
-    def sp(base):  return round(base * scale, 2)
+    def fs(b): return round(b * scale, 2)
+    def sp(b): return round(b * scale, 2)
 
-    # Styles
-    name_s = ParagraphStyle('N', fontName='Helvetica-Bold',
-                            fontSize=fs(19), leading=sp(21),
-                            textColor=colors.HexColor('#0f172a'), alignment=1)
-    title_s = ParagraphStyle('T', fontName='Helvetica',
-                             fontSize=fs(10.5), leading=sp(13),
-                             textColor=colors.HexColor('#475569'),
-                             alignment=1, spaceAfter=sp(3))
-    contact_s = ParagraphStyle('C', fontName='Helvetica',
-                               fontSize=fs(8.5), leading=sp(10.5),
-                               textColor=colors.HexColor('#475569'),
-                               alignment=1, spaceAfter=sp(5))
-    body_s = ParagraphStyle('B', fontName='Helvetica',
-                            fontSize=fs(8.2), leading=sp(11.5),
-                            textColor=colors.HexColor('#334155'))
-    bullet_s = ParagraphStyle('BU', parent=body_s,
-                              leftIndent=sp(11), firstLineIndent=sp(-9),
-                              spaceAfter=sp(2))
-    jtitle_s = ParagraphStyle('JT', fontName='Helvetica-Bold',
-                              fontSize=fs(8.8), leading=sp(11),
-                              textColor=colors.HexColor('#1e293b'))
-    jmeta_s  = ParagraphStyle('JM', fontName='Helvetica',
-                              fontSize=fs(8.2), leading=sp(11),
-                              textColor=colors.HexColor('#475569'))
-    jdesc_s  = ParagraphStyle('JD', parent=body_s,
-                              fontName='Helvetica-Oblique',
-                              textColor=colors.HexColor('#475569'),
-                              spaceAfter=sp(1.5))
-    date_s   = ParagraphStyle('DA', fontName='Helvetica',
-                              fontSize=fs(8.2), leading=sp(11),
-                              textColor=colors.HexColor('#475569'), alignment=2)
+    name_s    = ParagraphStyle('N',  fontName='Helvetica-Bold', fontSize=fs(19),   leading=sp(21),   textColor=colors.HexColor('#0f172a'), alignment=1)
+    title_s   = ParagraphStyle('T',  fontName='Helvetica',      fontSize=fs(10.5), leading=sp(13),   textColor=colors.HexColor('#475569'), alignment=1, spaceAfter=sp(3))
+    contact_s = ParagraphStyle('C',  fontName='Helvetica',      fontSize=fs(8.5),  leading=sp(10.5), textColor=colors.HexColor('#475569'), alignment=1, spaceAfter=sp(5))
+    body_s    = ParagraphStyle('B',  fontName='Helvetica',      fontSize=fs(8.2),  leading=sp(11.5), textColor=colors.HexColor('#334155'))
+    bullet_s  = ParagraphStyle('BU', parent=body_s, leftIndent=sp(11), firstLineIndent=sp(-9), spaceAfter=sp(2))
+    jtitle_s  = ParagraphStyle('JT', fontName='Helvetica-Bold', fontSize=fs(8.8),  leading=sp(11),   textColor=colors.HexColor('#1e293b'))
+    jmeta_s   = ParagraphStyle('JM', fontName='Helvetica',      fontSize=fs(8.2),  leading=sp(11),   textColor=colors.HexColor('#475569'))
+    jdesc_s   = ParagraphStyle('JD', parent=body_s, fontName='Helvetica-Oblique',  textColor=colors.HexColor('#475569'), spaceAfter=sp(1.5))
+    date_s    = ParagraphStyle('DA', fontName='Helvetica',      fontSize=fs(8.2),  leading=sp(11),   textColor=colors.HexColor('#475569'), alignment=2)
 
     story = []
 
-    # Header
     name    = strip_markdown(cv_data.get("name", ""))
     title   = strip_markdown(cv_data.get("title", ""))
     contact = strip_markdown(cv_data.get("contact", ""))
@@ -287,18 +277,15 @@ def _build_cv_buffer(cv_data, scale=1.0):
 
     story.append(Paragraph(name, name_s))
     story.append(Paragraph(title.upper(), title_s))
-    contact_fmt = contact.replace(" | ", "   &bull;   ")
-    story.append(Paragraph(contact_fmt, contact_s))
+    story.append(Paragraph(contact.replace(" | ", "   &bull;   "), contact_s))
 
-    # Profile
     if profile:
-        story.extend(_section_header("PROFILE", usable_w, scale))
+        story.extend(_section_header_pdf("PROFILE", usable_w, scale))
         story.append(Paragraph(profile, body_s))
 
-    # Experience
     experience = cv_data.get("experience", [])
     if experience:
-        story.extend(_section_header("PROFESSIONAL EXPERIENCE", usable_w, scale))
+        story.extend(_section_header_pdf("PROFESSIONAL EXPERIENCE", usable_w, scale))
         for idx, job in enumerate(experience):
             j_title   = strip_markdown(job.get("title", ""))
             j_company = strip_markdown(job.get("company", ""))
@@ -306,7 +293,6 @@ def _build_cv_buffer(cv_data, scale=1.0):
             j_date    = strip_markdown(job.get("date", ""))
             j_desc    = strip_markdown(job.get("description", ""))
             j_bullets = [strip_markdown(b) for b in job.get("bullets", [])]
-
             company_loc = j_company + (f" &bull; {j_loc}" if j_loc else "")
 
             row = Table([[Paragraph(j_title, jtitle_s), Paragraph(j_date, date_s)]],
@@ -321,30 +307,25 @@ def _build_cv_buffer(cv_data, scale=1.0):
             story.append(row)
             story.append(Paragraph(company_loc, jmeta_s))
             story.append(Spacer(1, sp(1.5)))
-
             if j_desc:
                 story.append(Paragraph(j_desc, jdesc_s))
                 story.append(Spacer(1, sp(1.5)))
-
             for b in j_bullets:
                 bt = b.strip()
                 if not bt.startswith("&bull;") and not bt.startswith("•"):
                     bt = f"&bull; {bt}"
                 story.append(Paragraph(bt, bullet_s))
-
             if idx < len(experience) - 1:
                 story.append(Spacer(1, sp(4)))
 
-    # Education
     education = cv_data.get("education", [])
     if education:
-        story.extend(_section_header("EDUCATION", usable_w, scale))
+        story.extend(_section_header_pdf("EDUCATION", usable_w, scale))
         for idx, ed in enumerate(education):
             e_deg  = strip_markdown(ed.get("degree", ""))
             e_sch  = strip_markdown(ed.get("school", ""))
             e_date = strip_markdown(ed.get("date", ""))
             e_det  = strip_markdown(ed.get("details", ""))
-
             row = Table([[Paragraph(e_deg, jtitle_s), Paragraph(e_date, date_s)]],
                         colWidths=[usable_w * 0.75, usable_w * 0.25])
             row.setStyle(TableStyle([
@@ -361,19 +342,14 @@ def _build_cv_buffer(cv_data, scale=1.0):
             if idx < len(education) - 1:
                 story.append(Spacer(1, sp(3)))
 
-    # Skills & Interests
     si = cv_data.get("skills_and_interests", {})
     if si:
-        story.extend(_section_header("SKILLS & INTERESTS", usable_w, scale))
+        story.extend(_section_header_pdf("SKILLS & INTERESTS", usable_w, scale))
         lines = []
-        langs  = si.get("languages", [])
-        tools  = si.get("tools", [])
-        comps  = si.get("competencies", [])
-        ints   = si.get("interests", [])
-        if langs:  lines.append(f"<b>Languages:</b> {', '.join(langs)}")
-        if tools:  lines.append(f"<b>Tools:</b> {', '.join(tools)}")
-        if comps:  lines.append(f"<b>Competencies:</b> {' &bull; '.join(comps)}")
-        if ints:   lines.append(f"<b>Interests:</b> {', '.join(ints)}")
+        if si.get("languages"):    lines.append(f"<b>Languages:</b> {', '.join(si['languages'])}")
+        if si.get("tools"):        lines.append(f"<b>Tools:</b> {', '.join(si['tools'])}")
+        if si.get("competencies"): lines.append(f"<b>Competencies:</b> {' &bull; '.join(si['competencies'])}")
+        if si.get("interests"):    lines.append(f"<b>Interests:</b> {', '.join(si['interests'])}")
         story.append(Paragraph("<br/>".join(lines), body_s))
 
     doc.build(story)
@@ -381,15 +357,159 @@ def _build_cv_buffer(cv_data, scale=1.0):
     return buf
 
 
-# ── Generate PDF endpoint (auto-scales to guarantee 1 page) ─────────────────────
+# ── Word builder ─────────────────────────────────────────────────────────────────
+
+def _remove_table_borders(tbl):
+    for cell in tbl.rows[0].cells:
+        for border in ['top', 'bottom', 'left', 'right']:
+            tc   = cell._tc
+            tcPr = tc.get_or_add_tcPr()
+            tcBdr = OxmlElement('w:tcBdr')
+            side  = OxmlElement(f'w:{border}')
+            side.set(qn('w:val'), 'none')
+            tcBdr.append(side)
+            tcPr.append(tcBdr)
+
+
+def _build_cv_docx(cv_data):
+    """Build a Word (.docx) CV and return a seeked BytesIO buffer."""
+    doc = Document()
+    for section in doc.sections:
+        section.top_margin    = Inches(0.5)
+        section.bottom_margin = Inches(0.5)
+        section.left_margin   = Inches(0.6)
+        section.right_margin  = Inches(0.6)
+
+    doc.styles['Normal'].font.name = 'Calibri'
+    doc.styles['Normal'].font.size = Pt(9.5)
+
+    def _para(text, bold=False, italic=False, size=9.5,
+               align=WD_ALIGN_PARAGRAPH.LEFT, color=None,
+               space_before=0, space_after=2):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_before = Pt(space_before)
+        p.paragraph_format.space_after  = Pt(space_after)
+        p.alignment = align
+        run = p.add_run(text)
+        run.bold = bold; run.italic = italic
+        run.font.size = Pt(size)
+        if color:
+            run.font.color.rgb = RGBColor(*color)
+        return p
+
+    def _section_title(title):
+        p = _para(title, bold=True, size=9.5, color=(30,41,59), space_before=6, space_after=1)
+        # Add bottom border as section divider
+        pPr  = p._p.get_or_add_pPr()
+        pBdr = OxmlElement('w:pBdr')
+        bot  = OxmlElement('w:bottom')
+        bot.set(qn('w:val'), 'single'); bot.set(qn('w:sz'), '4')
+        bot.set(qn('w:space'), '1');    bot.set(qn('w:color'), 'CBD5E1')
+        pBdr.append(bot); pPr.append(pBdr)
+
+    def _title_date_row(left_text, right_text, left_w=4.2, right_w=1.8):
+        tbl = doc.add_table(rows=1, cols=2)
+        tbl.autofit = False
+        tbl.columns[0].width = Inches(left_w)
+        tbl.columns[1].width = Inches(right_w)
+        tbl.style = 'Table Grid'
+        _remove_table_borders(tbl)
+        r = tbl.rows[0]
+        p0 = r.cells[0].paragraphs[0]
+        p0.paragraph_format.space_after = Pt(0)
+        run0 = p0.add_run(left_text)
+        run0.bold = True; run0.font.size = Pt(9.5)
+        run0.font.color.rgb = RGBColor(30,41,59)
+        p1 = r.cells[1].paragraphs[0]
+        p1.paragraph_format.space_after = Pt(0)
+        p1.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        run1 = p1.add_run(right_text)
+        run1.font.size = Pt(9)
+        run1.font.color.rgb = RGBColor(71,85,105)
+
+    # Header
+    name    = strip_markdown(cv_data.get("name", ""))
+    title   = strip_markdown(cv_data.get("title", ""))
+    contact = strip_markdown(cv_data.get("contact", ""))
+    profile = strip_markdown(cv_data.get("profile", ""))
+
+    _para(name,          bold=True, size=18, align=WD_ALIGN_PARAGRAPH.CENTER, color=(15,23,42),  space_after=1)
+    _para(title.upper(), size=10,            align=WD_ALIGN_PARAGRAPH.CENTER, color=(71,85,105), space_after=1)
+    _para(contact.replace(" | ", "  •  "), size=8.5, align=WD_ALIGN_PARAGRAPH.CENTER, color=(71,85,105), space_after=4)
+
+    if profile:
+        _section_title("PROFILE")
+        _para(profile, size=9, color=(51,65,85))
+
+    experience = cv_data.get("experience", [])
+    if experience:
+        _section_title("PROFESSIONAL EXPERIENCE")
+        for job in experience:
+            j_title   = strip_markdown(job.get("title", ""))
+            j_company = strip_markdown(job.get("company", ""))
+            j_loc     = strip_markdown(job.get("location", ""))
+            j_date    = strip_markdown(job.get("date", ""))
+            j_desc    = strip_markdown(job.get("description", ""))
+            j_bullets = [strip_markdown(b) for b in job.get("bullets", [])]
+
+            _title_date_row(j_title, j_date)
+            _para(j_company + (f" • {j_loc}" if j_loc else ""), size=9, color=(71,85,105), space_after=1)
+            if j_desc:
+                _para(j_desc, italic=True, size=9, color=(71,85,105), space_after=1)
+            for b in j_bullets:
+                p = doc.add_paragraph(style='List Bullet')
+                p.paragraph_format.space_after = Pt(1)
+                p.paragraph_format.left_indent = Inches(0.15)
+                run = p.add_run(b.strip().lstrip('•').strip())
+                run.font.size = Pt(9)
+                run.font.color.rgb = RGBColor(51,65,85)
+            doc.add_paragraph().paragraph_format.space_after = Pt(2)
+
+    education = cv_data.get("education", [])
+    if education:
+        _section_title("EDUCATION")
+        for ed in education:
+            e_deg  = strip_markdown(ed.get("degree", ""))
+            e_sch  = strip_markdown(ed.get("school", ""))
+            e_date = strip_markdown(ed.get("date", ""))
+            e_det  = strip_markdown(ed.get("details", ""))
+            _title_date_row(e_deg, e_date, left_w=4.5, right_w=1.5)
+            _para(e_sch, size=9, color=(71,85,105), space_after=1)
+            if e_det:
+                _para(e_det, size=9, color=(51,65,85), space_after=2)
+
+    si = cv_data.get("skills_and_interests", {})
+    if si:
+        _section_title("SKILLS & INTERESTS")
+        rows = []
+        if si.get("languages"):    rows.append(("Languages",    ', '.join(si['languages'])))
+        if si.get("tools"):        rows.append(("Tools",        ', '.join(si['tools'])))
+        if si.get("competencies"): rows.append(("Competencies", ' • '.join(si['competencies'])))
+        if si.get("interests"):    rows.append(("Interests",    ', '.join(si['interests'])))
+        for key, val in rows:
+            p = doc.add_paragraph()
+            p.paragraph_format.space_after = Pt(1)
+            rk = p.add_run(key + ': ')
+            rk.bold = True; rk.font.size = Pt(9)
+            rv = p.add_run(val)
+            rv.font.size = Pt(9)
+            rv.font.color.rgb = RGBColor(51,65,85)
+
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf
+
+
+# ── Endpoints ────────────────────────────────────────────────────────────────────
+
 @app.route('/api/generate-pdf', methods=['POST'])
 def generate_pdf():
     try:
         cv_data = request.json
         if not cv_data:
             return jsonify({"error": "Missing CV JSON payload"}), 400
-
-        scales = [1.0, 0.97, 0.94, 0.91, 0.88, 0.85, 0.82, 0.79, 0.76]
+        scales    = [1.0, 0.97, 0.94, 0.91, 0.88, 0.85, 0.82, 0.79, 0.76]
         final_buf = None
         for scale in scales:
             candidate = _build_cv_buffer(cv_data, scale)
@@ -397,14 +517,26 @@ def generate_pdf():
                 candidate.seek(0)
                 final_buf = candidate
                 break
-
         if final_buf is None:
             final_buf = _build_cv_buffer(cv_data, scales[-1])
             final_buf.seek(0)
-
         return send_file(final_buf, as_attachment=True,
                          download_name="Tailored_CV.pdf",
                          mimetype="application/pdf")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/generate-docx', methods=['POST'])
+def generate_docx():
+    try:
+        cv_data = request.json
+        if not cv_data:
+            return jsonify({"error": "Missing CV JSON payload"}), 400
+        buf = _build_cv_docx(cv_data)
+        return send_file(buf, as_attachment=True,
+                         download_name="Tailored_CV.docx",
+                         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

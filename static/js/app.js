@@ -28,17 +28,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const workspaceStep2 = document.getElementById('workspace-step2');
     const workspaceStep3 = document.getElementById('workspace-step3');
 
-    const tabKeywords = document.getElementById('tab-keywords');
-    const tabBullets  = document.getElementById('tab-bullets');
-    const paneKeywords = document.getElementById('pane-keywords');
-    const paneBullets  = document.getElementById('pane-bullets');
+    const tabKeywords   = document.getElementById('tab-keywords');
+    const tabBullets    = document.getElementById('tab-bullets');
+    const tabRedundancy = document.getElementById('tab-redundancy');
+    const paneKeywords   = document.getElementById('pane-keywords');
+    const paneBullets    = document.getElementById('pane-bullets');
+    const paneRedundancy = document.getElementById('pane-redundancy');
 
-    const keywordsContainer  = document.getElementById('keywords-container');
-    const proposalsContainer = document.getElementById('proposals-container');
+    const keywordsContainer   = document.getElementById('keywords-container');
+    const proposalsContainer  = document.getElementById('proposals-container');
+    const redundancyContainer = document.getElementById('redundancy-container');
 
-    const generatePdfBtn  = document.getElementById('generate-pdf-btn');
+    const generatePdfBtn   = document.getElementById('generate-pdf-btn');
     const generationLoader = document.getElementById('generation-loader');
     const restartBtn       = document.getElementById('restart-btn');
+
+    // Format selector
+    const fmtButtons = document.querySelectorAll('.fmt-btn');
+    let selectedFormat = 'pdf';
 
     // ── Dynamic API Base URL ───────────────────────────────────────────
     // Priority: localStorage override > default to relative URLs (same host)
@@ -100,21 +107,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── Tab switching ──────────────────────────────────────────────────
-    tabKeywords.addEventListener('click', () => {
-        tabKeywords.classList.add('border-blue-500', 'text-blue-400');
-        tabKeywords.classList.remove('border-transparent', 'text-gray-400');
-        tabBullets.classList.remove('border-blue-500', 'text-blue-400');
-        tabBullets.classList.add('border-transparent', 'text-gray-400');
-        paneKeywords.classList.remove('hidden');
-        paneBullets.classList.add('hidden');
-    });
-    tabBullets.addEventListener('click', () => {
-        tabBullets.classList.add('border-blue-500', 'text-blue-400');
-        tabBullets.classList.remove('border-transparent', 'text-gray-400');
-        tabKeywords.classList.remove('border-blue-500', 'text-blue-400');
-        tabKeywords.classList.add('border-transparent', 'text-gray-400');
-        paneBullets.classList.remove('hidden');
-        paneKeywords.classList.add('hidden');
+    function activateTab(tab) {
+        const tabs  = [tabKeywords, tabBullets, tabRedundancy];
+        const panes = [paneKeywords, paneBullets, paneRedundancy];
+        tabs.forEach((t, i) => {
+            const active = t === tab;
+            t.classList.toggle('border-blue-500', active);
+            t.classList.toggle('text-blue-400',   active);
+            t.classList.toggle('border-transparent', !active);
+            t.classList.toggle('text-gray-400',   !active);
+            panes[i].classList.toggle('hidden', !active);
+        });
+    }
+    tabKeywords.addEventListener('click',   () => activateTab(tabKeywords));
+    tabBullets.addEventListener('click',    () => activateTab(tabBullets));
+    tabRedundancy.addEventListener('click', () => activateTab(tabRedundancy));
+
+    // ── Format selector ────────────────────────────────────────────────
+    fmtButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            selectedFormat = btn.dataset.fmt;
+            fmtButtons.forEach(b => {
+                const active = b === btn;
+                b.classList.toggle('bg-blue-600',  active);
+                b.classList.toggle('text-white',   active);
+                b.classList.toggle('bg-gray-900',  !active);
+                b.classList.toggle('text-gray-400', !active);
+            });
+        });
     });
 
     // ── Analyze ────────────────────────────────────────────────────────
@@ -204,8 +224,41 @@ document.addEventListener('DOMContentLoaded', () => {
             keywordsContainer.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No keywords found.</p>';
         }
 
+        // Redundancy checks
+        const checks = originalCVData.redundancy_checks || [];
+        if (checks.length > 0) {
+            redundancyContainer.innerHTML = '';
+            checks.forEach(check => {
+                const el = document.createElement('div');
+                el.className = 'p-3 rounded-lg border border-gray-800 bg-gray-900/40 space-y-2';
+                el.innerHTML = `
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex-1">
+                            <p class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-0.5">📍 ${check.location}</p>
+                            <p class="text-xs text-gray-300">${check.issue}</p>
+                        </div>
+                        <label class="toggle-switch shrink-0">
+                            <input type="checkbox" id="red-${check.id}" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="space-y-1.5 text-xs">
+                        <div class="p-2 rounded bg-gray-950/60 border-l-2 border-red-500/50 text-gray-400">
+                            <span class="font-semibold text-gray-500 uppercase block mb-0.5 text-[9px]">Original:</span>
+                            ${check.original}
+                        </div>
+                        <div class="p-2 rounded bg-gray-950/60 border-l-2 border-amber-500/50 text-gray-200">
+                            <span class="font-semibold text-amber-400 uppercase block mb-0.5 text-[9px]">Suggested:</span>
+                            ${check.suggestion}
+                        </div>
+                    </div>`;
+                redundancyContainer.appendChild(el);
+            });
+        } else {
+            redundancyContainer.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No redundancies detected — your CV language looks varied.</p>';
+        }
 
-        // Proposals
+
         if (originalCVData.proposals && originalCVData.proposals.length > 0) {
             originalCVData.proposals.forEach((prop) => {
                 selectedProposals.add(prop.id);
@@ -251,10 +304,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ── Generate PDF ───────────────────────────────────────────────────
-    generatePdfBtn.addEventListener('click', async () => {
-        if (!originalCVData?.parsed_cv) { showToast('No CV data available.', 'error'); return; }
-
+    // ── Compile CV helper ──────────────────────────────────────────────
+    function buildCompiledCV() {
         const compiledCV = JSON.parse(JSON.stringify(originalCVData.parsed_cv));
 
         // Apply accepted sentence rewrites
@@ -273,6 +324,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Apply accepted redundancy fixes
+        (originalCVData.redundancy_checks || []).forEach((check) => {
+            const toggle = document.getElementById(`red-${check.id}`);
+            if (!toggle?.checked) return;
+            // Replace original text with suggestion across the whole CV (simple string replacement)
+            const replacer = (str) => str ? str.replace(check.original, check.suggestion) : str;
+            compiledCV.profile = replacer(compiledCV.profile);
+            (compiledCV.experience || []).forEach(job => {
+                job.description = replacer(job.description);
+                job.bullets = (job.bullets || []).map(replacer);
+            });
+        });
+
         // Inject accepted keywords into Competencies
         if (selectedKeywords.size > 0) {
             compiledCV.skills_and_interests ??= {};
@@ -283,29 +347,40 @@ document.addEventListener('DOMContentLoaded', () => {
                     compiledCV.skills_and_interests.competencies.push(kw);
             });
         }
+        return compiledCV;
+    }
+
+    async function downloadFile(url, compiledCV, filename) {
+        const response = await fetch(`${apiBaseUrl}${url}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(compiledCV)
+        });
+        if (!response.ok) throw new Error(`Generation failed: ${url}`);
+        const blob = await response.blob();
+        const objUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none'; a.href = objUrl; a.download = filename;
+        document.body.appendChild(a); a.click();
+        window.URL.revokeObjectURL(objUrl); document.body.removeChild(a);
+    }
+
+    // ── Generate & Download ────────────────────────────────────────────
+    generatePdfBtn.addEventListener('click', async () => {
+        if (!originalCVData?.parsed_cv) { showToast('No CV data available.', 'error'); return; }
+
+        const compiledCV = buildCompiledCV();
 
         generatePdfBtn.classList.add('hidden');
         generationLoader.classList.remove('hidden');
 
         try {
-            const response = await fetch(`${apiBaseUrl}/api/generate-pdf`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(compiledCV)
-            });
-            if (!response.ok) throw new Error('PDF generation failed on server.');
-
-            const blob = await response.blob();
-            const url  = window.URL.createObjectURL(blob);
-            const a    = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = 'Tailored_CV.pdf';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-
+            if (selectedFormat === 'pdf' || selectedFormat === 'both') {
+                await downloadFile('/api/generate-pdf', compiledCV, 'Tailored_CV.pdf');
+            }
+            if (selectedFormat === 'word' || selectedFormat === 'both') {
+                await downloadFile('/api/generate-docx', compiledCV, 'Tailored_CV.docx');
+            }
             workspaceStep2.classList.add('hidden');
             workspaceStep3.classList.remove('hidden');
             showToast('CV downloaded successfully!');
@@ -316,6 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
             generatePdfBtn.classList.remove('hidden');
         }
     });
+
 
     // ── Restart ────────────────────────────────────────────────────────
     restartBtn.addEventListener('click', () => {
