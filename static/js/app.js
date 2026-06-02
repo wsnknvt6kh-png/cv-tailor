@@ -184,42 +184,43 @@ document.addEventListener('DOMContentLoaded', () => {
         keywordsContainer.innerHTML = '';
         proposalsContainer.innerHTML = '';
 
-        // Keywords
+        // Keywords — only show MISSING ones (under-represented are already in the CV)
         if (originalCVData.keywords && originalCVData.keywords.length > 0) {
-            const sorted = [...originalCVData.keywords].sort((a, b) => a.priority - b.priority);
-            sorted.forEach((kw) => {
-                const isChecked = kw.matching_status === 'missing';
-                if (isChecked) selectedKeywords.add(kw.word);
+            const sorted = [...originalCVData.keywords]
+                .filter(kw => kw.matching_status === 'missing')
+                .sort((a, b) => a.priority - b.priority);
 
-                const score = kw.score ?? null;
-                const scoreColor = score === null ? 'text-gray-500' :
-                    score >= 7 ? 'text-green-400' :
-                    score >= 5 ? 'text-yellow-400' : 'text-orange-400';
+            if (sorted.length === 0) {
+                keywordsContainer.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">All key skills are already present in your CV.</p>';
+            } else {
+                sorted.forEach((kw) => {
+                    selectedKeywords.add(kw.word); // pre-select all missing keywords
 
-                const el = document.createElement('div');
-                el.className = 'flex items-center justify-between p-3 rounded-lg border border-gray-800 bg-gray-900/40';
-                el.innerHTML = `
-                    <div class="flex items-center space-x-3">
-                        <input type="checkbox" id="kw-${kw.word.replace(/\s+/g,'-')}"
-                               class="w-4 h-4 text-blue-600 border-gray-700 bg-gray-900 rounded focus:ring-blue-500 focus:ring-opacity-25"
-                               ${isChecked ? 'checked' : ''}>
-                        <label for="kw-${kw.word.replace(/\s+/g,'-')}"
-                               class="text-sm font-medium text-gray-200 cursor-pointer select-none">${kw.word}</label>
-                    </div>
-                    <div class="flex items-center space-x-2 shrink-0">
-                        ${score !== null ? `<span class="text-[10px] font-bold ${scoreColor}">${score}/9</span>` : ''}
-                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full
-                            ${kw.matching_status === 'missing'
-                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'}">
-                            ${kw.matching_status.toUpperCase()}
-                        </span>
-                    </div>`;
-                el.querySelector('input').addEventListener('change', (e) => {
-                    e.target.checked ? selectedKeywords.add(kw.word) : selectedKeywords.delete(kw.word);
+                    const score = kw.score ?? null;
+                    const scoreColor = score === null ? 'text-gray-500' :
+                        score >= 7 ? 'text-green-400' :
+                        score >= 5 ? 'text-yellow-400' : 'text-orange-400';
+
+                    const el = document.createElement('div');
+                    el.className = 'flex items-center justify-between p-3 rounded-lg border border-gray-800 bg-gray-900/40';
+                    el.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <input type="checkbox" id="kw-${kw.word.replace(/\s+/g,'-')}"
+                                   class="w-4 h-4 text-blue-600 border-gray-700 bg-gray-900 rounded focus:ring-blue-500 focus:ring-opacity-25"
+                                   checked>
+                            <label for="kw-${kw.word.replace(/\s+/g,'-')}"
+                                   class="text-sm font-medium text-gray-200 cursor-pointer select-none">${kw.word}</label>
+                        </div>
+                        <div class="flex items-center space-x-2 shrink-0">
+                            ${score !== null ? `<span class="text-[10px] font-bold ${scoreColor}">${score}/9</span>` : ''}
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">MISSING</span>
+                        </div>`;
+                    el.querySelector('input').addEventListener('change', (e) => {
+                        e.target.checked ? selectedKeywords.add(kw.word) : selectedKeywords.delete(kw.word);
+                    });
+                    keywordsContainer.appendChild(el);
                 });
-                keywordsContainer.appendChild(el);
-            });
+            }
         } else {
             keywordsContainer.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No keywords found.</p>';
         }
@@ -334,7 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const checks = originalCVData?.redundancy_checks || [];
         if (!checks.length) return;
 
-        // Build the text that includes ALL accepted rewrites
+        const originalText  = JSON.stringify(originalCVData.parsed_cv);
         const rewrittenText = buildAllRewritesApplied();
 
         checks.forEach(check => {
@@ -343,10 +344,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const badge  = document.getElementById(`red-badge-${check.id}`);
             if (!card || !toggle) return;
 
-            const stillPresent = rewrittenText.includes(check.original);
+            // Only grey out if:
+            // 1. The original text exists verbatim in the ORIGINAL CV (not a Gemini paraphrase)
+            // 2. AND it is NO LONGER present after applying all rewrites
+            const wasVerbatimInOriginal = originalText.includes(check.original);
+            const stillPresentAfterRewrites = rewrittenText.includes(check.original);
+            const resolvedByRewrite = wasVerbatimInOriginal && !stillPresentAfterRewrites;
 
-            if (!stillPresent) {
-                // A rewrite already replaced this text — grey out and disable
+            if (resolvedByRewrite) {
                 card.classList.add('opacity-40');
                 toggle.checked = false;
                 toggle.disabled = true;
