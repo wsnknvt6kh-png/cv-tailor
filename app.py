@@ -379,13 +379,13 @@ def _build_cv_docx(cv_data):
     """Build a Word (.docx) CV and return a seeked BytesIO buffer."""
     doc = Document()
     for section in doc.sections:
-        section.top_margin    = Inches(0.5)
-        section.bottom_margin = Inches(0.5)
-        section.left_margin   = Inches(0.6)
-        section.right_margin  = Inches(0.6)
+        section.top_margin    = Inches(0.4)
+        section.bottom_margin = Inches(0.4)
+        section.left_margin   = Inches(0.5)
+        section.right_margin  = Inches(0.5)
 
     doc.styles['Normal'].font.name = 'Calibri'
-    doc.styles['Normal'].font.size = Pt(9.5)
+    doc.styles['Normal'].font.size = Pt(9)
 
     def _para(text, bold=False, italic=False, size=9.5,
                align=WD_ALIGN_PARAGRAPH.LEFT, color=None,
@@ -402,7 +402,7 @@ def _build_cv_docx(cv_data):
         return p
 
     def _section_title(title):
-        p = _para(title, bold=True, size=9.5, color=(30,41,59), space_before=6, space_after=1)
+        p = _para(title, bold=True, size=9, color=(30,41,59), space_before=5, space_after=1)
         # Add bottom border as section divider
         pPr  = p._p.get_or_add_pPr()
         pBdr = OxmlElement('w:pBdr')
@@ -411,24 +411,25 @@ def _build_cv_docx(cv_data):
         bot.set(qn('w:space'), '1');    bot.set(qn('w:color'), 'CBD5E1')
         pBdr.append(bot); pPr.append(pBdr)
 
-    def _title_date_row(left_text, right_text, left_w=4.2, right_w=1.8):
+    def _title_date_row(left_text, right_text, left_w=4.4, right_w=1.6):
         tbl = doc.add_table(rows=1, cols=2)
         tbl.autofit = False
         tbl.columns[0].width = Inches(left_w)
         tbl.columns[1].width = Inches(right_w)
-        tbl.style = 'Table Grid'
-        _remove_table_borders(tbl)
+        tbl.style = 'Table Normal'   # no borders — avoids visible grid lines
         r = tbl.rows[0]
         p0 = r.cells[0].paragraphs[0]
-        p0.paragraph_format.space_after = Pt(0)
+        p0.paragraph_format.space_before = Pt(0)
+        p0.paragraph_format.space_after  = Pt(0)
         run0 = p0.add_run(left_text)
-        run0.bold = True; run0.font.size = Pt(9.5)
+        run0.bold = True; run0.font.size = Pt(9)
         run0.font.color.rgb = RGBColor(30,41,59)
         p1 = r.cells[1].paragraphs[0]
-        p1.paragraph_format.space_after = Pt(0)
+        p1.paragraph_format.space_before = Pt(0)
+        p1.paragraph_format.space_after  = Pt(0)
         p1.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         run1 = p1.add_run(right_text)
-        run1.font.size = Pt(9)
+        run1.font.size = Pt(8.5)
         run1.font.color.rgb = RGBColor(71,85,105)
 
     # Header
@@ -437,9 +438,9 @@ def _build_cv_docx(cv_data):
     contact = strip_markdown(cv_data.get("contact", ""))
     profile = strip_markdown(cv_data.get("profile", ""))
 
-    _para(name,          bold=True, size=18, align=WD_ALIGN_PARAGRAPH.CENTER, color=(15,23,42),  space_after=1)
-    _para(title.upper(), size=10,            align=WD_ALIGN_PARAGRAPH.CENTER, color=(71,85,105), space_after=1)
-    _para(contact.replace(" | ", "  •  "), size=8.5, align=WD_ALIGN_PARAGRAPH.CENTER, color=(71,85,105), space_after=4)
+    _para(name,          bold=True, size=16, align=WD_ALIGN_PARAGRAPH.CENTER, color=(15,23,42),  space_after=1)
+    _para(title.upper(), size=9.5,           align=WD_ALIGN_PARAGRAPH.CENTER, color=(71,85,105), space_after=1)
+    _para(contact.replace(" | ", "  •  "), size=8, align=WD_ALIGN_PARAGRAPH.CENTER, color=(71,85,105), space_after=3)
 
     if profile:
         _section_title("PROFILE")
@@ -457,17 +458,17 @@ def _build_cv_docx(cv_data):
             j_bullets = [strip_markdown(b) for b in job.get("bullets", [])]
 
             _title_date_row(j_title, j_date)
-            _para(j_company + (f" • {j_loc}" if j_loc else ""), size=9, color=(71,85,105), space_after=1)
+            _para(j_company + (f" • {j_loc}" if j_loc else ""), size=8.5, color=(71,85,105), space_after=1)
             if j_desc:
-                _para(j_desc, italic=True, size=9, color=(71,85,105), space_after=1)
+                _para(j_desc, italic=True, size=8.5, color=(71,85,105), space_after=1)
             for b in j_bullets:
                 p = doc.add_paragraph(style='List Bullet')
-                p.paragraph_format.space_after = Pt(1)
-                p.paragraph_format.left_indent = Inches(0.15)
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after  = Pt(1)
+                p.paragraph_format.left_indent  = Inches(0.12)
                 run = p.add_run(b.strip().lstrip('•').strip())
-                run.font.size = Pt(9)
+                run.font.size = Pt(8.5)
                 run.font.color.rgb = RGBColor(51,65,85)
-            doc.add_paragraph().paragraph_format.space_after = Pt(2)
 
     education = cv_data.get("education", [])
     if education:
@@ -477,10 +478,10 @@ def _build_cv_docx(cv_data):
             e_sch  = strip_markdown(ed.get("school", ""))
             e_date = strip_markdown(ed.get("date", ""))
             e_det  = strip_markdown(ed.get("details", ""))
-            _title_date_row(e_deg, e_date, left_w=4.5, right_w=1.5)
-            _para(e_sch, size=9, color=(71,85,105), space_after=1)
+            _title_date_row(e_deg, e_date, left_w=4.6, right_w=1.4)
+            _para(e_sch, size=8.5, color=(71,85,105), space_after=1)
             if e_det:
-                _para(e_det, size=9, color=(51,65,85), space_after=2)
+                _para(e_det, size=8.5, color=(51,65,85), space_after=1)
 
     si = cv_data.get("skills_and_interests", {})
     if si:
@@ -492,11 +493,12 @@ def _build_cv_docx(cv_data):
         if si.get("interests"):    rows.append(("Interests",    ', '.join(si['interests'])))
         for key, val in rows:
             p = doc.add_paragraph()
-            p.paragraph_format.space_after = Pt(1)
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after  = Pt(1)
             rk = p.add_run(key + ': ')
-            rk.bold = True; rk.font.size = Pt(9)
+            rk.bold = True; rk.font.size = Pt(8.5)
             rv = p.add_run(val)
-            rv.font.size = Pt(9)
+            rv.font.size = Pt(8.5)
             rv.font.color.rgb = RGBColor(51,65,85)
 
     buf = BytesIO()
