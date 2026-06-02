@@ -171,6 +171,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isChecked = kw.matching_status === 'missing';
                 if (isChecked) selectedKeywords.add(kw.word);
 
+                const score = kw.score ?? null;
+                const scoreColor = score === null ? 'text-gray-500' :
+                    score >= 7 ? 'text-green-400' :
+                    score >= 5 ? 'text-yellow-400' : 'text-orange-400';
+
                 const el = document.createElement('div');
                 el.className = 'flex items-center justify-between p-3 rounded-lg border border-gray-800 bg-gray-900/40';
                 el.innerHTML = `
@@ -181,12 +186,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         <label for="kw-${kw.word.replace(/\s+/g,'-')}"
                                class="text-sm font-medium text-gray-200 cursor-pointer select-none">${kw.word}</label>
                     </div>
-                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full
-                        ${kw.matching_status === 'missing'
-                            ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                            : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'}">
-                        ${kw.matching_status.toUpperCase()}
-                    </span>`;
+                    <div class="flex items-center space-x-2 shrink-0">
+                        ${score !== null ? `<span class="text-[10px] font-bold ${scoreColor}">${score}/9</span>` : ''}
+                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full
+                            ${kw.matching_status === 'missing'
+                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'}">
+                            ${kw.matching_status.toUpperCase()}
+                        </span>
+                    </div>`;
                 el.querySelector('input').addEventListener('change', (e) => {
                     e.target.checked ? selectedKeywords.add(kw.word) : selectedKeywords.delete(kw.word);
                 });
@@ -195,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             keywordsContainer.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No keywords found.</p>';
         }
+
 
         // Proposals
         if (originalCVData.proposals && originalCVData.proposals.length > 0) {

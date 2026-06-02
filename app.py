@@ -112,8 +112,34 @@ Write natural sentences exactly as they would appear in a professional CV.
 
 Your tasks:
 1. Parse the CV into structured JSON.
-2. Identify 10-15 keywords/skills from the Job Description, prioritised by relevancy.
-3. Propose natural sentence rewrites in the CV Profile or Experience bullets to weave in missing keywords. Never invent achievements — only rephrase.
+2. Identify 10-15 keywords or skills from the Job Description and SCORE each one using the 4 criteria below. The final priority rank (1 = most important) is determined by total score descending.
+3. Propose natural sentence rewrites in the CV Profile or Experience bullets to weave in high-priority keywords. Never invent achievements — only rephrase what is already there.
+
+KEYWORD SCORING CRITERIA (assign each keyword a score out of 9):
+
+A. JD Prominence (0-3):
+   +3 if the keyword appears in the job title, opening paragraph, or under an explicit "Required" / "Must have" section
+   +2 if it appears in the main responsibilities section
+   +1 if it appears only in "Nice to have" or closing sections
+   +0 if it is only mentioned once in passing
+
+B. JD Frequency (0-2):
+   +2 if the keyword (or close synonyms) appears 3 or more times in the JD
+   +1 if it appears twice
+   +0 if it appears only once
+
+C. Specificity (0-1):
+   +1 if it is a concrete, specific skill (tool, methodology, certification, domain)
+   +0 if it is a generic soft skill (e.g. "communication", "teamwork")
+
+D. Fit with candidate CV background (0-3):
+   +3 if it directly relates to the candidate's existing experience or domain (e.g. a logistics PM being asked about supply chain optimisation)
+   +2 if it is adjacent — the candidate could credibly develop or claim this skill based on their background
+   +1 if it is loosely related but requires some stretch
+   +0 if it is unrelated to the candidate's background and would be implausible to include (e.g. asking a logistics PM to claim deep SaaS product experience)
+
+Only recommend keywords where criteria D score is 1 or higher. Do NOT surface keywords with D=0.
+Set matching_status to "missing" if the keyword is absent from the CV, or "under-represented" if present but not prominent.
 
 CV Text:
 {cv_text}
@@ -157,6 +183,7 @@ Return ONE JSON object matching this schema exactly:
     {{
       "word": "keyword phrase",
       "priority": 1,
+      "score": 8,
       "matching_status": "missing"
     }}
   ],
@@ -173,6 +200,7 @@ Return ONE JSON object matching this schema exactly:
   ]
 }}
 """
+
         try:
             response = client.models.generate_content(
                 model='gemini-2.5-flash',
